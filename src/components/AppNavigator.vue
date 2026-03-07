@@ -50,6 +50,7 @@ const router = useRouter()
 console.log('🚀 ~ file: AppNavigator.vue:35 ~ route:', JSON.parse(JSON.stringify(route)))
 
 const activeLink = computed(() => route.name)
+const inLayoutView = computed(() => String(route.name || '') === 'layout')
 
 // 等价于 computed
 // const activeLink = ref(route.path.slice(1))
@@ -72,6 +73,24 @@ const logout = ()=>{
       redirect: route.query.redirect || '/'
     }
   })
+}
+
+/**
+ * 通知布局页启动项目预览。
+ * 通过全局事件解耦导航栏与页面编辑区。
+ */
+function triggerProjectPreview() {
+  if (!inLayoutView.value || typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('low-code:preview-control', {
+      detail: {
+        action: 'start'
+      }
+    })
+  )
 }
 
 const Icon = defineComponent({
@@ -147,6 +166,14 @@ const Icon = defineComponent({
       <div class="common-btn debug-btn" :class="{ debug: envStore.debug }" @click="envStore.toggle">
         <Bug />
         开发模式:({{ envStore.debug ? '开' : '关' }})
+      </div>
+      <div
+        class="common-btn debug-btn"
+        :class="{ disabled: !inLayoutView }"
+        :title="inLayoutView ? '启动当前项目预览' : '仅布局页面可预览'"
+        @click="triggerProjectPreview"
+      >
+        预览
       </div>
       <div class="common-btn">
         <Share />
@@ -258,5 +285,10 @@ const Icon = defineComponent({
 .debug-btn.debug {
   color: var(--color-primary);
   box-shadow: var(--color-primary) 0 0 0 1px;
+}
+
+.common-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 </style>

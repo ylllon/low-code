@@ -1,115 +1,102 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Page, SmartOptimization } from '@icon-park/vue-next'
 import OutlineDrawer from '@/views/PageLayoutView/AppLeftPanel/OutlineDrawer.vue'
 import BlocksDrawer from '@/views/PageLayoutView/AppLeftPanel/BlocksDrawer.vue'
+import type { ProjectNode } from '@/views/PageLayoutView/AppLeftPanel/project-tree.types'
+import type { ProjectPreviewState } from '@/views/PageLayoutView/project-preview.types'
 
-type DrawerMode = 'outline' | 'blocks' | null
+type LeftTab = 'project' | 'components'
 
-const isDrawerShown = ref<DrawerMode>('outline')
+const activeTab = ref<LeftTab>('project')
+const emit = defineEmits<{
+  (e: 'file-select', fileNode: ProjectNode | null): void
+  (e: 'project-preview-change', previewState: ProjectPreviewState): void
+}>()
 
-const toggleDrawer = (drawerMode: DrawerMode = null) => {
-  if (isDrawerShown.value === drawerMode) {
-    isDrawerShown.value = null
-    return
+const tabs: Array<{ key: LeftTab; label: string }> = [
+  {
+    key: 'project',
+    label: '项目源码目录'
+  },
+  {
+    key: 'components',
+    label: '组件库'
   }
-  isDrawerShown.value = drawerMode
-}
+]
 </script>
 
 <template>
   <div class="app-left-panel-wrapper">
-    <div class="app-left-panel-bar" :style="{ boxShadow: 'var(--color-gray-300) 1px 0px 0px' }">
-      <div
-        :class="['app-left-panel-item', isDrawerShown === 'outline' && 'active']"
-        @click="toggleDrawer('outline')"
+    <div class="left-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="left-tab-btn"
+        :class="{ active: activeTab === tab.key }"
+        @click="activeTab = tab.key"
       >
-        <Page size="20" :style="{ lineHeight: 0.7 }" />
-      </div>
-      <div
-        :class="['app-left-panel-item', isDrawerShown === 'blocks' && 'active']"
-        @click="toggleDrawer('blocks')"
-      >
-        <SmartOptimization size="20" :style="{ lineHeight: 0.7 }" />
-      </div>
+        {{ tab.label }}
+      </button>
     </div>
-    <Transition name="app-left-panel-drawer">
-      <div v-if="!!isDrawerShown" class="app-left-panel-drawer">
-        <div class="app-left-panel-drawer-content">
-          <component
-            v-if="!!isDrawerShown"
-            :is="isDrawerShown === 'outline' ? OutlineDrawer : BlocksDrawer"
-          />
-        </div>
-      </div>
-    </Transition>
+
+    <div class="left-tab-content tiny-scrollbar">
+      <OutlineDrawer
+        v-show="activeTab === 'project'"
+        @file-select="emit('file-select', $event)"
+        @project-preview-change="emit('project-preview-change', $event)"
+      />
+      <BlocksDrawer v-show="activeTab === 'components'" />
+    </div>
   </div>
 </template>
 
 <style scoped>
 .app-left-panel-wrapper {
-  position: relative;
-  display: flex;
-  z-index: 4;
-  height: 100%;
-  box-shadow: var(--color-gray-300) 1px 0 0;
-}
-
-.app-left-panel-bar {
-  width: 60px;
-  height: 100%;
-  padding-top: 16px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border-right: 1px solid var(--color-gray-300);
+  background-color: var(--color-white);
 }
 
-.app-left-panel-item {
-  display: flex;
-  margin: 8px 0;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
+.left-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-gray-300);
+  background-color: var(--color-gray-100);
+}
+
+.left-tab-btn {
+  height: 34px;
+  border: 1px solid var(--color-gray-300);
   border-radius: 8px;
+  background-color: var(--color-white);
+  color: var(--color-gray-800);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-bold);
-  color: var(--color-gray-700);
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  user-select: none;
+  transition: all 0.2s ease;
 }
 
-.app-left-panel-item.active {
-  color: var(--color-text);
-  background-color: var(--color-gray-200);
+.left-tab-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.app-left-panel-item:hover {
-  background-color: var(--color-gray-200);
-  transition: all 0.2s ease-in-out;
+.left-tab-btn.active {
+  border-color: var(--color-primary);
+  background-color: rgb(101 146 183 / 10%);
+  color: var(--color-primary);
 }
 
-.app-left-panel-drawer {
-  width: calc(var(--panel-width) - 60px);
-  height: 100%;
-  box-shadow: var(--color-gray-300) 1px 0 0;
-  overflow: hidden;
-}
-
-/* 下面我们会解释这些 class 是做什么的 */
-.app-left-panel-drawer-enter-active,
-.app-left-panel-drawer-leave-active {
-  transition: width 0.1s cubic-bezier(0.3, 0.1, 0.3, 1);
-}
-
-.app-left-panel-drawer-enter-from,
-.app-left-panel-drawer-leave-to {
-  width: 0;
-}
-
-.app-left-panel-drawer-content {
-  width: calc(var(--panel-width) - 60px);
-  height: 100%;
-  padding: 16px;
+.left-tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
 }
 </style>

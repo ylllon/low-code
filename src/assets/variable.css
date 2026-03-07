@@ -1,29 +1,23 @@
 :root {
-  /* font size */
+  /* legacy typography */
   --font-size-small: 12px;
   --font-size-normal: 14px;
   --font-size-large: 16px;
-
-  /* font weight */
   --font-weight-light: 300;
   --font-weight-normal: 400;
   --font-weight-bold: 500;
   --font-weight-bolder: 700;
 
-  /* 颜色相关 */
-
-  /* gray */
+  /* legacy color aliases */
   --color-gray-100: #f8f8f8;
   --color-gray-200: #f2f2f2;
   --color-gray-300: #e6e6e6;
   --color-gray-400: #d9d9d9;
-  --color-gray-500: #ccc;
+  --color-gray-500: #cccccc;
   --color-gray-600: #b3b3b3;
-  --color-gray-700: #999;
-  --color-gray-800: #666;
-  --color-gray-900: #333;
-
-  /* blue */
+  --color-gray-700: #999999;
+  --color-gray-800: #666666;
+  --color-gray-900: #333333;
   --color-blue-100: #e6f7ff;
   --color-blue-200: #bae7ff;
   --color-blue-300: #91d5ff;
@@ -33,53 +27,93 @@
   --color-blue-700: #096dd9;
   --color-blue-800: #0050b3;
   --color-blue-900: #003a8c;
-
-  /* white black */
-  --color-white: #fff;
+  --color-white: #ffffff;
   --color-black: var(--color-gray-900);
-
-  /* theme */
   --color-primary: var(--color-blue-600);
-
-  /* mics */
   --panel-width: 320px;
+
+  /* low-code design tokens (P0 baseline) */
+  --lc-font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --lc-font-size-xs: 11px;
+  --lc-font-size-sm: 12px;
+  --lc-font-size-md: 14px;
+  --lc-font-size-lg: 16px;
+  --lc-font-weight-regular: 400;
+  --lc-font-weight-medium: 500;
+  --lc-font-weight-semibold: 600;
+  --lc-font-weight-bold: 700;
+  --lc-line-height-tight: 1.35;
+  --lc-line-height-normal: 1.5;
+
+  --lc-color-primary: #007aff;
+  --lc-color-primary-hover: #0f8bff;
+  --lc-color-primary-soft: #e8f3ff;
+  --lc-color-success: #16a34a;
+  --lc-color-warning: #c57a00;
+  --lc-color-danger: #d93025;
+
+  --lc-color-text-1: #1f2937;
+  --lc-color-text-2: #475569;
+  --lc-color-text-3: #6b7280;
+  --lc-color-text-disabled: #9ca3af;
+
+  --lc-color-bg-app: #f3f6fb;
+  --lc-color-bg-panel: #ffffff;
+  --lc-color-bg-panel-soft: #f8fbff;
+  --lc-color-bg-subtle: #f2f6fb;
+  --lc-color-bg-mask: rgb(15 23 42 / 78%);
+
+  --lc-color-border: #dce4ef;
+  --lc-color-border-strong: #c4cfdd;
+  --lc-color-divider: #e7edf5;
+
+  --lc-radius-xs: 4px;
+  --lc-radius-sm: 8px;
+  --lc-radius-md: 10px;
+  --lc-radius-lg: 12px;
+  --lc-radius-pill: 999px;
+
+  --lc-spacing-1: 4px;
+  --lc-spacing-2: 8px;
+  --lc-spacing-3: 12px;
+  --lc-spacing-4: 16px;
+  --lc-spacing-5: 20px;
+  --lc-spacing-6: 24px;
+
+  --lc-shadow-sm: 0 2px 8px rgb(15 23 42 / 8%);
+  --lc-shadow-md: 0 6px 16px rgb(15 23 42 / 12%);
+  --lc-shadow-focus: 0 0 0 2px rgb(0 122 255 / 20%);
+  --lc-transition-fast: 0.16s ease;
+  --lc-transition-normal: 0.24s ease;
 }
 
-/* color palette from <https://github.com/vuejs/theme> */
-
- :root {
+/* Keep Vue starter palette for existing dependencies */
+:root {
   --vt-c-white: #ffffff;
   --vt-c-white-soft: #f8f8f8;
   --vt-c-white-mute: #f2f2f2;
-
   --vt-c-black: #181818;
   --vt-c-black-soft: #222222;
   --vt-c-black-mute: #282828;
-
   --vt-c-indigo: #333333;
-
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
-
+  --vt-c-divider-light-1: rgb(60 60 60 / 29%);
+  --vt-c-divider-light-2: rgb(60 60 60 / 12%);
+  --vt-c-divider-dark-1: rgb(84 84 84 / 65%);
+  --vt-c-divider-dark-2: rgb(84 84 84 / 48%);
   --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
+  --vt-c-text-light-2: rgb(60 60 60 / 66%);
   --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  --vt-c-text-dark-2: rgb(235 235 235 / 64%);
 }
 
 :root {
   --color-background: var(--vt-c-white);
   --color-background-soft: var(--vt-c-white-soft);
   --color-background-mute: var(--vt-c-white-mute);
-
   --color-border: var(--vt-c-divider-light-2);
   --color-border-hover: var(--vt-c-divider-light-1);
-
   --color-heading: var(--vt-c-text-light-1);
   --color-text: var(--vt-c-text-light-1);
-
   --section-gap: 160px;
 }
 
@@ -88,10 +122,8 @@
     --color-background: var(--vt-c-black);
     --color-background-soft: var(--vt-c-black-soft);
     --color-background-mute: var(--vt-c-black-mute);
-
     --color-border: var(--vt-c-divider-dark-2);
     --color-border-hover: var(--vt-c-divider-dark-1);
-
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
   }
