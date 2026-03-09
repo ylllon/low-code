@@ -15,6 +15,7 @@
     "commit": "cz-git",
     "commitlint": "commitlint --edit",
     "check": "tsno run ./scripts/check.ts",
+    "generate:ep-components": "node scripts/generate-element-plus-auto-library.mjs",
     "service:dev": "pnpm --dir ./service dev",
     "service:start": "pnpm --dir ./service start",
     "fast-glob": "^3.2.11"

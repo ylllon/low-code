@@ -27,6 +27,7 @@ import {
   resolveChartOptionEditorText,
   validateChartOptionInput
 } from '@/views/PageLayoutView/AppPreviewer/echarts-option.utils'
+import { parsePagedTableColumnSchema } from '@/views/PageLayoutView/AppPreviewer/paged-table.utils'
 
 const props = defineProps<{
   selectedFileNode: ProjectNode | null
@@ -42,6 +43,7 @@ const activePanelTab = ref<PanelTab>('props')
 
 const hasSelectedFile = computed(() => props.selectedFileNode?.type === 'file')
 const selectedNode = selectedDesignerNode
+const isPagedTableSelected = computed(() => selectedNode.value?.type === 'pagedTable')
 
 const selectedComponentMeta = computed<LibraryComponentMeta | null>(() => {
   if (!selectedNode.value) {
@@ -373,6 +375,398 @@ function resolvePropEditorRows(propItem: ComponentPropSchema) {
   return 3
 }
 
+function parseDelimitedItems(rawValue: any) {
+  if (Array.isArray(rawValue)) {
+    return rawValue
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+  }
+
+  if (typeof rawValue !== 'string') {
+    return []
+  }
+
+  return rawValue
+    .split(/\n|\||,/g)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeListItems(rawItems: string[]) {
+  return rawItems
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function resolveVisualListItems(propKey: string, fallbackItems: string[] = []) {
+  const rawValue = getSelectedNodePropValue(propKey)
+  const parsedItems = parseDelimitedItems(rawValue)
+  if (parsedItems.length) {
+    return parsedItems
+  }
+  return [...fallbackItems]
+}
+
+function commitVisualListItems(propKey: string, nextItems: string[]) {
+  const normalizedItems = normalizeListItems(nextItems)
+  onSelectedNodePropChange(propKey, normalizedItems.join('|'))
+}
+
+function resolveListItemPlaceholder(propKey: string, index: number) {
+  if (propKey === 'columns' || propKey === 'columnKeys') {
+    return `col_${index + 1}`
+  }
+  return `Option ${index + 1}`
+}
+
+function onVisualListItemChange(propKey: string, index: number, nextValue: string) {
+  const currentItems = resolveVisualListItems(propKey)
+  if (index < 0 || index >= currentItems.length) {
+    return
+  }
+  const nextItems = [...currentItems]
+  nextItems[index] = nextValue
+  commitVisualListItems(propKey, nextItems)
+}
+
+function onAddVisualListItem(propKey: string) {
+  const currentItems = resolveVisualListItems(propKey)
+  const nextItems = [...currentItems, resolveListItemPlaceholder(propKey, currentItems.length)]
+  commitVisualListItems(propKey, nextItems)
+}
+
+function onRemoveVisualListItem(propKey: string, index: number) {
+  const currentItems = resolveVisualListItems(propKey)
+  if (index < 0 || index >= currentItems.length) {
+    return
+  }
+  const nextItems = currentItems.filter((_, itemIndex) => itemIndex !== index)
+  commitVisualListItems(propKey, nextItems)
+}
+
+function isSelectOptionVisualProp(propItem: ComponentPropSchema) {
+  if (!selectedNode.value) {
+    return false
+  }
+
+  if (selectedNode.value.type === 'select' && propItem.key === 'options') {
+    return true
+  }
+
+  if (selectedNode.value.type === 'epSelect' && propItem.key === 'optionItems') {
+    return true
+  }
+
+  return false
+}
+
+function isTableColumnVisualProp(propItem: ComponentPropSchema) {
+  if (!selectedNode.value) {
+    return false
+  }
+
+  if (selectedNode.value.type === 'table' && propItem.key === 'columns') {
+    return true
+  }
+
+  if (selectedNode.value.type === 'epTable' && propItem.key === 'columnKeys') {
+    return true
+  }
+
+  return false
+}
+
+function isTableDataVisualProp(propItem: ComponentPropSchema) {
+  return selectedNode.value?.type === 'epTable' && propItem.key === 'data'
+}
+
+function isPagedTableColumnSchemaProp(propItem: ComponentPropSchema) {
+  return selectedNode.value?.type === 'pagedTable' && propItem.key === 'columnSchema'
+}
+
+interface PagedTableColumnDraft {
+  key: string
+  label: string
+  valueExpr: string
+  minWidth: number
+}
+
+function resolvePagedTableColumnDrafts() {
+  if (selectedNode.value?.type !== 'pagedTable') {
+    return [] as PagedTableColumnDraft[]
+  }
+
+  const parsed = parsePagedTableColumnSchema(
+    getSelectedNodePropValue('columnSchema'),
+    String(getSelectedNodePropValue('columns') || '')
+  )
+
+  return parsed.map((item, index) => {
+    return {
+      key: String(item.key || `col_${index + 1}`),
+      label: String(item.label || `Column ${index + 1}`),
+      valueExpr: String(item.valueExpr || `\${row.${item.key || `col_${index + 1}`}}`),
+      minWidth: Number.isFinite(Number(item.minWidth)) ? Math.max(60, Math.round(Number(item.minWidth))) : 120
+    }
+  })
+}
+
+const pagedTableColumnDrafts = computed(() => resolvePagedTableColumnDrafts())
+
+function commitPagedTableColumnDrafts(nextDrafts: PagedTableColumnDraft[]) {
+  const normalized = nextDrafts
+    .map((item, index) => {
+      const normalizedKey = String(item.key || `col_${index + 1}`).trim() || `col_${index + 1}`
+      return {
+        key: normalizedKey,
+        label: String(item.label || normalizedKey).trim() || normalizedKey,
+        valueExpr: String(item.valueExpr || `\${row.${normalizedKey}}`).trim() || `\${row.${normalizedKey}}`,
+        minWidth: Math.max(60, Math.round(Number(item.minWidth) || 120))
+      }
+    })
+    .filter((item) => item.key)
+
+  const serialized = JSON.stringify(normalized, null, 2)
+  const fallbackColumns = normalized.map((item) => item.label).join('|')
+  withSelectedNodeUpdate({
+    props: {
+      columnSchema: serialized,
+      columns: fallbackColumns
+    }
+  })
+}
+
+function onPagedTableColumnDraftChange(index: number, patch: Partial<PagedTableColumnDraft>) {
+  const drafts = [...pagedTableColumnDrafts.value]
+  if (index < 0 || index >= drafts.length) {
+    return
+  }
+  drafts[index] = {
+    ...drafts[index],
+    ...patch
+  }
+  commitPagedTableColumnDrafts(drafts)
+}
+
+function onAddPagedTableColumnDraft() {
+  const drafts = [...pagedTableColumnDrafts.value]
+  const nextIndex = drafts.length + 1
+  drafts.push({
+    key: `col_${nextIndex}`,
+    label: `Column ${nextIndex}`,
+    valueExpr: `\${row.col_${nextIndex}}`,
+    minWidth: 120
+  })
+  commitPagedTableColumnDrafts(drafts)
+}
+
+function onRemovePagedTableColumnDraft(index: number) {
+  const drafts = pagedTableColumnDrafts.value.filter((_, draftIndex) => draftIndex !== index)
+  if (!drafts.length) {
+    drafts.push({
+      key: 'id',
+      label: 'ID',
+      valueExpr: '${row.id}',
+      minWidth: 120
+    })
+  }
+  commitPagedTableColumnDrafts(drafts)
+}
+
+interface VisualTableRow {
+  [key: string]: any
+}
+
+function parseTableDataRows(rawValue: any): VisualTableRow[] {
+  let parsedRows: any[] = []
+
+  if (Array.isArray(rawValue)) {
+    parsedRows = rawValue
+  } else if (typeof rawValue === 'string' && rawValue.trim()) {
+    try {
+      const parsed = JSON.parse(rawValue)
+      if (Array.isArray(parsed)) {
+        parsedRows = parsed
+      }
+    } catch {
+      return []
+    }
+  }
+
+  return parsedRows
+    .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({ ...item }))
+}
+
+function resolveSelectedTableColumnKeys() {
+  if (!selectedNode.value) {
+    return []
+  }
+
+  if (selectedNode.value.type === 'table') {
+    return parseDelimitedItems(getSelectedNodePropValue('columns'))
+  }
+
+  if (selectedNode.value.type !== 'epTable') {
+    return []
+  }
+
+  const columnKeys = parseDelimitedItems(getSelectedNodePropValue('columnKeys'))
+  if (columnKeys.length) {
+    return columnKeys
+  }
+
+  const rows = parseTableDataRows(getSelectedNodePropValue('data'))
+  if (rows.length) {
+    return Object.keys(rows[0]).filter(Boolean)
+  }
+
+  return []
+}
+
+function resolveSelectedTableDataRows() {
+  if (!selectedNode.value || selectedNode.value.type !== 'epTable') {
+    return []
+  }
+  return parseTableDataRows(getSelectedNodePropValue('data'))
+}
+
+const visualTableColumns = computed(() => resolveSelectedTableColumnKeys())
+const visualTableRows = computed(() => resolveSelectedTableDataRows())
+
+function normalizeTableRowsByColumns(rows: VisualTableRow[], columns: string[]) {
+  const normalizedColumns = normalizeListItems(columns)
+  return rows.map((row) => {
+    const nextRow: VisualTableRow = {}
+    normalizedColumns.forEach((columnKey) => {
+      nextRow[columnKey] = typeof row?.[columnKey] === 'undefined' ? '' : row[columnKey]
+    })
+    return nextRow
+  })
+}
+
+function commitSelectedTableColumns(nextColumns: string[]) {
+  if (!selectedNode.value) {
+    return
+  }
+
+  const normalizedColumns = normalizeListItems(nextColumns).map((columnKey, index) => {
+    return columnKey || `col_${index + 1}`
+  })
+
+  if (selectedNode.value.type === 'table') {
+    onSelectedNodePropChange('columns', normalizedColumns.join('|'))
+    return
+  }
+
+  if (selectedNode.value.type !== 'epTable') {
+    return
+  }
+
+  const normalizedRows = normalizeTableRowsByColumns(visualTableRows.value, normalizedColumns)
+  withSelectedNodeUpdate({
+    props: {
+      columnKeys: normalizedColumns.join('|'),
+      data: JSON.stringify(normalizedRows, null, 2)
+    }
+  })
+}
+
+function onSelectedTableColumnChange(index: number, nextValue: string) {
+  const nextColumns = [...visualTableColumns.value]
+  if (index < 0 || index >= nextColumns.length) {
+    return
+  }
+  nextColumns[index] = nextValue
+  commitSelectedTableColumns(nextColumns)
+}
+
+function onAddSelectedTableColumn() {
+  const nextColumns = [...visualTableColumns.value, `col_${visualTableColumns.value.length + 1}`]
+  commitSelectedTableColumns(nextColumns)
+}
+
+function onRemoveSelectedTableColumn(index: number) {
+  const nextColumns = visualTableColumns.value.filter((_, columnIndex) => columnIndex !== index)
+  commitSelectedTableColumns(nextColumns)
+}
+
+function commitSelectedTableRows(nextRows: VisualTableRow[]) {
+  if (!selectedNode.value || selectedNode.value.type !== 'epTable') {
+    return
+  }
+
+  const normalizedRows = normalizeTableRowsByColumns(nextRows, visualTableColumns.value)
+  onSelectedNodePropChange('data', JSON.stringify(normalizedRows, null, 2))
+}
+
+function resolveTableCellText(row: VisualTableRow, columnKey: string) {
+  const rawValue = row?.[columnKey]
+  if (rawValue === null || typeof rawValue === 'undefined') {
+    return ''
+  }
+  return String(rawValue)
+}
+
+function onSelectedTableCellChange(rowIndex: number, columnKey: string, nextValue: string) {
+  const nextRows = [...visualTableRows.value]
+  if (rowIndex < 0 || rowIndex >= nextRows.length) {
+    return
+  }
+
+  nextRows[rowIndex] = {
+    ...nextRows[rowIndex],
+    [columnKey]: nextValue
+  }
+  commitSelectedTableRows(nextRows)
+}
+
+function onAddSelectedTableRow() {
+  if (!selectedNode.value || selectedNode.value.type !== 'epTable') {
+    return
+  }
+
+  const nextColumns = visualTableColumns.value.length ? [...visualTableColumns.value] : ['col_1']
+  const nextRows = [...visualTableRows.value]
+  const newRow: VisualTableRow = {}
+
+  nextColumns.forEach((columnKey) => {
+    newRow[columnKey] = ''
+  })
+
+  nextRows.push(newRow)
+  withSelectedNodeUpdate({
+    props: {
+      columnKeys: nextColumns.join('|'),
+      data: JSON.stringify(normalizeTableRowsByColumns(nextRows, nextColumns), null, 2)
+    }
+  })
+}
+
+function onRemoveSelectedTableRow(rowIndex: number) {
+  if (!selectedNode.value || selectedNode.value.type !== 'epTable') {
+    return
+  }
+
+  const nextRows = visualTableRows.value.filter((_, index) => index !== rowIndex)
+  commitSelectedTableRows(nextRows)
+}
+
+function onClearSelectedTableRows() {
+  if (!selectedNode.value || selectedNode.value.type !== 'epTable') {
+    return
+  }
+
+  onSelectedNodePropChange('data', '[]')
+}
+
+function buildVisualTableGridStyle() {
+  const columnCount = Math.max(visualTableColumns.value.length, 1)
+  return {
+    gridTemplateColumns: `48px repeat(${columnCount}, minmax(140px, 1fr)) 72px`
+  }
+}
+
 function onSelectedNodeStyleChange(styleKey: string, styleValue: any) {
   withSelectedNodeUpdate({
     style: {
@@ -484,6 +878,20 @@ function onValidateDemoData() {
 
   try {
     const parsed = JSON.parse(rawJson)
+    if (isPagedTableSelected.value) {
+      if (!parsed || typeof parsed !== 'object') {
+        ElMessage.error('分页表格 demoData 需要对象或数组结构')
+        return
+      }
+      const rowCount = Array.isArray(parsed)
+        ? parsed.length
+        : Array.isArray((parsed as any)?.data?.records)
+          ? (parsed as any).data.records.length
+          : 0
+      ElMessage.success(`JSON 校验通过，已识别 ${rowCount} 条 records 数据`)
+      return
+    }
+
     if (!Array.isArray(parsed)) {
       ElMessage.error('demoData 必须是数组结构')
       return
@@ -791,8 +1199,191 @@ function onApplyImportDsl() {
               <el-form label-position="top" size="small">
                 <template v-for="propItem in selectedPropSchema" :key="propItem.key">
                   <el-form-item :label="propItem.label">
+                    <div v-if="isSelectOptionVisualProp(propItem)" class="visual-list-editor">
+                      <div
+                        v-for="(optionItem, optionIndex) in resolveVisualListItems(propItem.key, ['Option 1'])"
+                        :key="`${propItem.key}-${optionIndex}`"
+                        class="visual-list-row"
+                      >
+                        <el-input
+                          :model-value="optionItem"
+                          :placeholder="`选项 ${optionIndex + 1}`"
+                          @update:model-value="onVisualListItemChange(propItem.key, optionIndex, $event)"
+                        />
+                        <el-button
+                          size="small"
+                          text
+                          :disabled="resolveVisualListItems(propItem.key, ['Option 1']).length <= 1"
+                          @click="onRemoveVisualListItem(propItem.key, optionIndex)"
+                        >
+                          删除
+                        </el-button>
+                      </div>
+
+                      <div class="visual-list-actions">
+                        <el-button size="small" plain @click="onAddVisualListItem(propItem.key)">新增选项</el-button>
+                      </div>
+                    </div>
+
+                    <div v-else-if="isTableColumnVisualProp(propItem)" class="visual-list-editor">
+                      <div
+                        v-for="(columnItem, columnIndex) in resolveVisualListItems(propItem.key, ['col_1'])"
+                        :key="`${propItem.key}-${columnIndex}`"
+                        class="visual-list-row"
+                      >
+                        <el-input
+                          :model-value="columnItem"
+                          :placeholder="`列 ${columnIndex + 1}`"
+                          @update:model-value="
+                            selectedNode?.type === 'epTable'
+                              ? onSelectedTableColumnChange(columnIndex, $event)
+                              : onVisualListItemChange(propItem.key, columnIndex, $event)
+                          "
+                        />
+                        <el-button
+                          size="small"
+                          text
+                          :disabled="resolveVisualListItems(propItem.key, ['col_1']).length <= 1"
+                          @click="
+                            selectedNode?.type === 'epTable'
+                              ? onRemoveSelectedTableColumn(columnIndex)
+                              : onRemoveVisualListItem(propItem.key, columnIndex)
+                          "
+                        >
+                          删除
+                        </el-button>
+                      </div>
+
+                      <div class="visual-list-actions">
+                        <el-button
+                          size="small"
+                          plain
+                          @click="
+                            selectedNode?.type === 'epTable'
+                              ? onAddSelectedTableColumn()
+                              : onAddVisualListItem(propItem.key)
+                          "
+                        >
+                          新增列
+                        </el-button>
+                      </div>
+                    </div>
+
+                    <div v-else-if="isTableDataVisualProp(propItem)" class="visual-table-editor">
+                      <div class="visual-table-toolbar">
+                        <el-button size="small" type="primary" plain @click="onAddSelectedTableRow">新增行</el-button>
+                        <el-button size="small" plain @click="onClearSelectedTableRows">清空</el-button>
+                        <span class="field-tip">共 {{ visualTableRows.length }} 行</span>
+                      </div>
+
+                      <el-alert
+                        v-if="!visualTableColumns.length"
+                        type="warning"
+                        :closable="false"
+                        title="请先设置列定义，再编辑表格数据。"
+                      />
+
+                      <div v-else class="visual-table-grid">
+                        <div class="visual-table-head" :style="buildVisualTableGridStyle()">
+                          <span class="visual-table-cell visual-table-cell--index">#</span>
+                          <span
+                            v-for="columnKey in visualTableColumns"
+                            :key="`table-head-${columnKey}`"
+                            class="visual-table-cell visual-table-cell--header"
+                          >
+                            {{ columnKey }}
+                          </span>
+                          <span class="visual-table-cell visual-table-cell--action">操作</span>
+                        </div>
+
+                        <div v-if="!visualTableRows.length" class="visual-table-empty">暂无行数据，点击“新增行”。</div>
+
+                        <div
+                          v-for="(rowItem, rowIndex) in visualTableRows"
+                          :key="`table-row-${rowIndex}`"
+                          class="visual-table-row"
+                          :style="buildVisualTableGridStyle()"
+                        >
+                          <span class="visual-table-cell visual-table-cell--index">{{ rowIndex + 1 }}</span>
+                          <div
+                            v-for="columnKey in visualTableColumns"
+                            :key="`table-cell-${rowIndex}-${columnKey}`"
+                            class="visual-table-cell"
+                          >
+                            <el-input
+                              :model-value="resolveTableCellText(rowItem, columnKey)"
+                              size="small"
+                              @update:model-value="onSelectedTableCellChange(rowIndex, columnKey, $event)"
+                            />
+                          </div>
+                          <div class="visual-table-cell visual-table-cell--action">
+                            <el-button size="small" text @click="onRemoveSelectedTableRow(rowIndex)">删行</el-button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p class="field-tip">可视化编辑会同步到 data JSON。</p>
+                    </div>
+
+                    <div v-else-if="isPagedTableColumnSchemaProp(propItem)" class="paged-column-editor">
+                      <div class="paged-column-toolbar">
+                        <el-button size="small" type="primary" plain @click="onAddPagedTableColumnDraft">
+                          新增列映射
+                        </el-button>
+                        <span class="field-tip">valueExpr 支持 ${row.xxx}、${obj.xxx.xx}</span>
+                      </div>
+
+                      <div class="paged-column-grid">
+                        <div class="paged-column-head">
+                          <span>key</span>
+                          <span>label</span>
+                          <span>valueExpr</span>
+                          <span>minWidth</span>
+                          <span>操作</span>
+                        </div>
+
+                        <div
+                          v-for="(columnDraft, columnIndex) in pagedTableColumnDrafts"
+                          :key="`paged-column-${columnIndex}`"
+                          class="paged-column-row"
+                        >
+                          <el-input
+                            :model-value="columnDraft.key"
+                            size="small"
+                            placeholder="id"
+                            @update:model-value="onPagedTableColumnDraftChange(columnIndex, { key: $event })"
+                          />
+                          <el-input
+                            :model-value="columnDraft.label"
+                            size="small"
+                            placeholder="ID"
+                            @update:model-value="onPagedTableColumnDraftChange(columnIndex, { label: $event })"
+                          />
+                          <el-input
+                            :model-value="columnDraft.valueExpr"
+                            size="small"
+                            placeholder="${row.id}"
+                            @update:model-value="onPagedTableColumnDraftChange(columnIndex, { valueExpr: $event })"
+                          />
+                          <el-input-number
+                            :model-value="columnDraft.minWidth"
+                            :min="60"
+                            :max="480"
+                            :step="1"
+                            controls-position="right"
+                            @change="onPagedTableColumnDraftChange(columnIndex, { minWidth: Number($event || 120) })"
+                          />
+                          <div class="paged-column-actions">
+                            <el-button size="small" text @click="onRemovePagedTableColumnDraft(columnIndex)">
+                              删除
+                            </el-button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <el-input
-                      v-if="propItem.editor === 'input'"
+                      v-else-if="propItem.editor === 'input'"
                       :model-value="String(getSelectedNodePropValue(propItem.key) ?? '')"
                       :placeholder="propItem.placeholder || ''"
                       @update:model-value="onSelectedNodePropChange(propItem.key, $event)"
@@ -894,12 +1485,16 @@ function onApplyImportDsl() {
                   </el-form-item>
 
                   <template v-if="selectedDataSourceType === 'SELF'">
-                    <el-form-item label="demoData(JSON 数组)">
+                    <el-form-item :label="isPagedTableSelected ? 'demoData(JSON 对象/数组)' : 'demoData(JSON 数组)'">
                       <el-input
                         :model-value="String(getSelectedNodePropValue('demoData') || '')"
                         type="textarea"
                         :rows="6"
-                        placeholder='例如：[{"name":"Mon","value":20}]'
+                        :placeholder="
+                          isPagedTableSelected
+                            ? '例如：{data:{records:[{id:1}],total:1,size:10,current:1,pages:1}}'
+                            : '例如：[{name:Mon,value:20}]'
+                        "
                         @update:model-value="onSelectedNodePropChange('demoData', $event)"
                       />
                     </el-form-item>
@@ -1074,6 +1669,137 @@ function onApplyImportDsl() {
   margin: 8px 0 0;
   font-size: var(--lc-font-size-sm);
   color: var(--lc-color-text-3);
+}
+
+.visual-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.visual-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.visual-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visual-table-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.visual-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.visual-table-grid {
+  border: 1px solid var(--lc-color-border);
+  border-radius: var(--lc-radius-sm);
+  overflow: auto;
+  max-height: 280px;
+  background: var(--lc-color-bg-panel);
+}
+
+.visual-table-head,
+.visual-table-row {
+  display: grid;
+  min-width: max-content;
+}
+
+.visual-table-row {
+  border-top: 1px solid var(--lc-color-divider);
+}
+
+.visual-table-cell {
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border-right: 1px solid var(--lc-color-divider);
+}
+
+.visual-table-cell:last-child {
+  border-right: none;
+}
+
+.visual-table-cell--index,
+.visual-table-cell--action {
+  justify-content: center;
+  font-size: var(--lc-font-size-sm);
+  color: var(--lc-color-text-3);
+  background: var(--lc-color-bg-subtle);
+}
+
+.visual-table-cell--header {
+  font-size: var(--lc-font-size-sm);
+  font-weight: var(--lc-font-weight-semibold);
+  color: var(--lc-color-text-2);
+  background: var(--lc-color-bg-subtle);
+}
+
+.visual-table-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: var(--lc-font-size-sm);
+  color: var(--lc-color-text-3);
+}
+
+.paged-column-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paged-column-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.paged-column-grid {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lc-color-border);
+  border-radius: var(--lc-radius-sm);
+  overflow: hidden;
+}
+
+.paged-column-head,
+.paged-column-row {
+  display: grid;
+  grid-template-columns: 96px 120px minmax(180px, 1fr) 110px 56px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+}
+
+.paged-column-head {
+  background: var(--lc-color-bg-subtle);
+  font-size: var(--lc-font-size-sm);
+  color: var(--lc-color-text-2);
+  font-weight: var(--lc-font-weight-semibold);
+}
+
+.paged-column-row {
+  border-top: 1px solid var(--lc-color-divider);
+}
+
+.paged-column-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chart-option-alert {

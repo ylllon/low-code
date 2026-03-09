@@ -4,6 +4,9 @@ import ContextMenu, { type ContextMenuItem } from '@/components/ContextMenu.vue'
 import type { CanvasComponentNode } from '@/views/PageLayoutView/component-library'
 import { LOW_CODE_COMPONENT_MIME_TYPE, componentLibraryMap } from '@/views/PageLayoutView/component-library'
 import EChartsNodeRenderer from '@/views/PageLayoutView/AppPreviewer/EChartsNodeRenderer.vue'
+import AutoElementNodeRenderer from '@/views/PageLayoutView/AppPreviewer/AutoElementNodeRenderer.vue'
+import PagedTableNodeRenderer from '@/views/PageLayoutView/AppPreviewer/PagedTableNodeRenderer.vue'
+import { isElementPlusAutoComponentType } from '@/views/PageLayoutView/component-library.element-plus'
 
 defineOptions({
   name: 'CanvasNodeCard'
@@ -453,6 +456,10 @@ function onPointerDown(event: PointerEvent) {
   emit('pointer-down', event, props.node.id)
 }
 
+function isAutoElementNode(node: CanvasComponentNode) {
+  return isElementPlusAutoComponentType(node.type)
+}
+
 function onSelectNode() {
   emit('select', props.node.id)
 }
@@ -867,6 +874,10 @@ function handleContextMenuSelect(item: ContextMenuItem) {
       </el-table>
     </template>
 
+    <template v-else-if="node.type === 'pagedTable'">
+      <PagedTableNodeRenderer :node="node" />
+    </template>
+
     <template v-else-if="node.type === 'image'">
       <el-image v-if="node.props.src" :src="node.props.src" :fit="node.props.fit || 'cover'" class="mock-image" />
       <div v-else class="mock-image-placeholder">图片占位（可在右侧配置图片地址）</div>
@@ -900,6 +911,10 @@ function handleContextMenuSelect(item: ContextMenuItem) {
       <div class="decoration-line-preview">
         <span>{{ node.props.text || '装饰分割线' }}</span>
       </div>
+    </template>
+
+    <template v-else-if="isAutoElementNode(node)">
+      <AutoElementNodeRenderer :node="node" />
     </template>
 
     <template v-else>

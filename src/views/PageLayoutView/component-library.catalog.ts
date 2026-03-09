@@ -1,4 +1,5 @@
 ﻿import type { ComponentPropOption, LibraryComponentMeta } from './component-library.types'
+import { elementPlusAutoLibraryList } from './component-library.element-plus'
 
 const INPUT_SHARED_STYLE = {
   color: '#1f2937',
@@ -1058,6 +1059,81 @@ export const componentLibraryList: LibraryComponentMeta[] = [
     defaultDataMode: 'SELF'
   },
   {
+    type: 'pagedTable',
+    name: '分页表格',
+    description: '表格 + 分页组合，支持接口分页字段映射与行模板表达式',
+    category: '数据组件',
+    groupOrder: 4,
+    previewType: 'data',
+    iconKey: 'Grid',
+    color: '#d97706',
+    icon: '📑',
+    defaultWidth: 420,
+    defaultHeight: 280,
+    defaultProps: {
+      ...CHART_DATA_DEFAULTS,
+      pageSize: 10,
+      currentPage: 1,
+      pageSizeOptions: '10|20|50|100',
+      paginationLayout: 'total, sizes, prev, pager, next',
+      pageParamKey: 'current',
+      sizeParamKey: 'size',
+      recordsPath: 'obj.data.records',
+      totalPath: 'obj.data.total',
+      sizePath: 'obj.data.size',
+      currentPath: 'obj.data.current',
+      pagesPath: 'obj.data.pages',
+      columns: 'ID|Name|Age',
+      columnSchema:
+        '[{"key":"id","label":"ID","valueExpr":"${row.id}"},{"key":"name","label":"Name","valueExpr":"${row.name}"},{"key":"age","label":"Age","valueExpr":"${row.age}"}]',
+      demoData:
+        '{\n  "code": 200,\n  "message": "Success",\n  "data": {\n    "records": [\n      { "id": 1, "name": "John", "age": 30 },\n      { "id": 2, "name": "Jane", "age": 25 }\n    ],\n    "total": 100,\n    "size": 10,\n    "current": 1,\n    "pages": 10\n  }\n}'
+    },
+    defaultStyle: {
+      borderRadius: 8
+    },
+    stateStyles: {
+      normal: {
+        backgroundColor: '#ffffff'
+      },
+      hover: {
+        borderColor: '#d97706'
+      },
+      active: {
+        borderColor: '#d97706',
+        shadow: '0 0 0 2px rgba(217, 119, 6, 0.2)'
+      }
+    },
+    propSchema: [
+      { key: 'columns', label: '列标题（回退）', editor: 'input', placeholder: '例如：ID|Name|Age' },
+      {
+        key: 'columnSchema',
+        label: '列映射(JSON)',
+        editor: 'json',
+        placeholder:
+          '[{"key":"id","label":"ID","valueExpr":"${row.id}"}]，valueExpr 支持 ${row.xxx} / ${obj.xxx}'
+      },
+      { key: 'recordsPath', label: 'records 路径', editor: 'input', placeholder: 'obj.data.records' },
+      { key: 'totalPath', label: 'total 路径', editor: 'input', placeholder: 'obj.data.total' },
+      { key: 'sizePath', label: 'size 路径', editor: 'input', placeholder: 'obj.data.size' },
+      { key: 'currentPath', label: 'current 路径', editor: 'input', placeholder: 'obj.data.current' },
+      { key: 'pagesPath', label: 'pages 路径', editor: 'input', placeholder: 'obj.data.pages' },
+      { key: 'pageParamKey', label: '请求页码字段', editor: 'input', placeholder: 'current' },
+      { key: 'sizeParamKey', label: '请求分页字段', editor: 'input', placeholder: 'size' },
+      { key: 'pageSize', label: '默认每页条数', editor: 'number', min: 1, max: 200, step: 1 },
+      { key: 'currentPage', label: '默认页码', editor: 'number', min: 1, max: 9999, step: 1 },
+      { key: 'pageSizeOptions', label: '分页条数选项', editor: 'input', placeholder: '例如：10|20|50|100' },
+      {
+        key: 'paginationLayout',
+        label: '分页布局',
+        editor: 'input',
+        placeholder: '例如：total, sizes, prev, pager, next'
+      }
+    ],
+    supportsDataConfig: true,
+    defaultDataMode: 'SELF'
+  },
+  {
     type: 'card',
     name: '卡片',
     description: '承载分组信息',
@@ -1205,5 +1281,7 @@ export const componentLibraryList: LibraryComponentMeta[] = [
       }
     },
     propSchema: [{ key: 'text', label: '文案', editor: 'input' }]
-  }
+  },
+  ...elementPlusAutoLibraryList
 ]
+

@@ -29,6 +29,48 @@ pnpm dev
 - `GET /uaa/v1/app/mini/list`
 - `GET /uaa/v1/role/list`
 - `POST /uaa/oauth2/token`
+- `GET /mock/v1/paged-table`
+- `POST /mock/v1/paged-table`
+
+## 3.1 分页表格测试接口
+
+用于低代码分页表格组件联调，默认返回：
+
+```json
+{
+  "code": 200,
+  "message": "Success",
+  "data": {
+    "records": [],
+    "total": 0,
+    "size": 10,
+    "current": 1,
+    "pages": 1
+  }
+}
+```
+
+支持分页参数（GET query 或 POST body）：
+
+- `current/page/pageNum`
+- `size/pageSize/limit`
+- `keyword`（模糊过滤 name/email/department 等）
+
+支持响应字段映射参数：
+
+- `recordsKey` `totalKey` `sizeKey` `currentKey` `pagesKey`
+- `dataPath`（例如 `data`、`payload.pageData`）
+- `codeKey` `messageKey`
+
+示例：
+
+```bash
+# 标准结构
+GET /mock/v1/paged-table?current=2&size=5
+
+# 自定义字段名和 data 嵌套路径
+GET /mock/v1/paged-table?current=1&size=10&recordsKey=list&totalKey=totalCount&currentKey=pageNo&sizeKey=pageSize&pagesKey=pageTotal&dataPath=payload.pageData
+```
 
 ## 4. 使用说明
 

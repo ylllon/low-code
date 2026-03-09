@@ -3,6 +3,7 @@ const registerHealthController = require('./healthController')
 const registerUserController = require('./userController')
 const registerActionController = require('./actionController')
 const registerProjectController = require('./projectController')
+const registerMockController = require('./mockController')
 
 /**
  * 将各业务 controller 按模块挂载到同一个 router。
@@ -13,6 +14,7 @@ function registerControllers(router) {
   registerUserController(router)
   registerActionController(router)
   registerProjectController(router)
+  registerMockController(router)
 }
 
 module.exports = registerControllers
